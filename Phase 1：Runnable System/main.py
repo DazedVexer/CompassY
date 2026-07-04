@@ -1,5 +1,5 @@
 from prompt_builder import build_system_prompt
-from llm_client import chat
+from llm_client import chat_stream
 from session_manager import create_session, save_message
 from memory import ShortTermMemory
 
@@ -44,15 +44,15 @@ def main():
         # 调用 LLM
         try:
             messages = memory.get_messages()
-            response = chat(messages)
+            print("CompassY: ", end="", flush=True)
+            response = chat_stream(messages)
         except Exception as e:
             response = f"[错误] LLM 调用失败：{e}"
+            print(f"\n{response}")
 
         # 记录 AI 回复
         memory.add_assistant_message(response)
         save_message(session_file, "assistant", response)
-
-        print(f"\nCompassY: {response}\n")
 
     print(f"\n[CompassY] 对话结束。Session 已保存至 sessions/{session_file.name}")
 

@@ -6,11 +6,20 @@ client = OpenAI(
     base_url=LLM_CONFIG["base_url"],
 )
 
-def chat(messages: list[dict]) -> str:
-    response = client.chat.completions.create(
+def chat_stream(messages: list[dict]):
+    """流式调用 LLM，逐字打印回复"""
+    stream = client.chat.completions.create(
         model=LLM_CONFIG["model"],
         messages=messages,
         temperature=LLM_CONFIG["temperature"],
         max_tokens=LLM_CONFIG["max_tokens"],
+        stream=True,
     )
-    return response.choices[0].message.content
+    full_response = ""
+    for chunk in stream:
+        if chunk.choices[0].delta.content:
+            text = chunk.choices[0].delta.content
+            print(text, end="", flush=True)
+            full_response += text
+    print()  # 最后换行
+    return full_response                                 # 换行处理
