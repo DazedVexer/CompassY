@@ -4,12 +4,11 @@ from pathlib import Path
 from config import SESSIONS_DIR
 
 def create_session() -> Path:
-    # 创建新 session 文件，返回文件路径
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     session_file = SESSIONS_DIR / f"{timestamp}.json"
 
-    # 创建初始数据结构
+    # 初始化 session 数据结构
     session_data = {
         "session_id": timestamp,
         "created_at": datetime.now().isoformat(),
@@ -19,8 +18,11 @@ def create_session() -> Path:
     return session_file
 
 def save_message(session_file: Path, role: str, content: str):
-    # 追加一条消息到 session 文件
-    data = json.loads(session_file.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(session_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, FileNotFoundError):
+        data = {"messages": []}
+
     data["messages"].append({
         "role": role,
         "content": content,
@@ -28,7 +30,10 @@ def save_message(session_file: Path, role: str, content: str):
     })
     session_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
+# 预设方法，用于后续Phase计划
 def load_session(session_file: Path) -> list[dict]:
-    # 加载 session 中的消息列表
-    data = json.loads(session_file.read_text(encoding="utf-8"))
-    return data["messages"]
+    try:
+        data = json.loads(session_file.read_text(encoding="utf-8"))
+        return data.get("messages", [])
+    except (json.JSONDecodeError, FileNotFoundError):
+        return []
