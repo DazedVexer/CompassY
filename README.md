@@ -1,108 +1,151 @@
-* # CompassY
+* # Polaris
 
 	## Personal AI Executive Assistant
 
 	## What is CompassY?
 
-	CompassY 是一个 **Personal AI Executive Assistant（个人 AI 执行助理）** 项目——通过一套严密的规则体系与模板库，将 AI 转化为基于真实个人数据的、冷静务实的"人生副驾驶"（Life Co-Pilot）。当前已完成 Phase 1 可运行 CLI Agent，正在向完整 AI Agent 演进。
+	Polaris 是一个**个人 AI 执行助理**，将 LLM 转化为有纪律的、数据驱动的生活教练。它不只是一个泛泛的聊天机器人——Polaris 在一套严密的规则体系下运行，定义其角色、输出格式、约束和分析人格。它能帮你：
+
+	- **串联**分散在健康、学习、日程、目标中的个人数据
+	- **发现**行为与目标的偏离
+	- **预警**风险（分级警告：红 / 黄 / 绿）
+	- **记住**一切——每次交互自动归档、可检索
+	- **报告**进度（每日条目 → 每周回顾 → 每月汇总）
+
+	Polaris 不是医生、不是心理治疗师、也不是算命先生。它是一个**分析型伙伴**，有明确的边界，始终基于*你的*真实数据工作。Why?
 
 	***
 
-	## Why?
+	## 架构
 
-	在信息爆炸的时代，个人数据分散在聊天记录、备忘录、健康 App、日历、笔记等各处，却没有人帮你**串联分析、发现偏差、预警风险、追踪进度**。
+	### Phase 1 — 可运行 CLI Agent ✅
+	
+	一个功能完整的 CLI Agent，具备角色感知的 system prompt、流式对话、滑动窗口短期记忆和自动会话归档。
 
-	CompassY 解决的核心问题：
+ | 模块                 | 职责                                        |
+ | -------------------- | ------------------------------------------- |
+ | `prompt_builder.py`  | 加载 `rules/*.md`，拼接为复合 system prompt |
+ | `llm_client.py`      | OpenAI 兼容的流式聊天，含重试逻辑           |
+ | `memory.py`          | 滑动窗口短期上下文（STM）                   |
+ | `session_manager.py` | 每次对话自动保存为 JSON                     |
+ | `main.py`            | 调度器 — `/exit`、`/save`、优雅异常处理     |
+	
+	### Phase 2 — 记忆层 🚧（进行中）
 
-	- **数据孤岛**：你的健康数据、学习进度、日程安排、目标计划互不关联，缺乏交叉分析
-	- **缺乏外部视角**：自己很难对自己的行为模式做客观偏差检测
-	- **遗忘与脱轨**：设定目标后缺乏持续追踪和提醒机制，容易偏离
-	- **交互无记忆**：每次和 AI 聊天都是独立的，没有累积的个人上下文
-	- **AI 角色模糊**：普通 AI 助手要么过于讨好、要么缺乏边界，CompassY 通过严格的角色定义让 AI 成为稳定可靠的分析型伙伴
+	增加持久化长期记忆，由 LLM 驱动记忆提取、检索和总结。
 
+ | 模块                   | 职责                         |
+ | ---------------------- | ---------------------------- |
+ | `short_term_memory.py` | 增强版 STM，含总结触发机制   |
+ | `long_term_memory.py`  | 基于 SQLite 的持久化记忆存储 |
+ | `memory_manager.py`    | 记忆提取、检索与总结调度器   |
+ | `config.py`            | 双阶段扩展配置               |
+		
 	***
 
-	## Features
-
-	### 核心能力
-
-	| 能力         | 说明                             |
-	| ---------- | ------------------------------ |
-	| **数据整合分析** | 跨领域关联你的健康、学习、日程、目标、情绪数据，发现隐藏模式 |
-	| **偏差检测**   | 对照目标与实际行为，自动发现偏离并给出可执行方案       |
-	| **风险预警**   | 基于数据趋势，提前发出分级警告（红/黄/绿），附带应对方案  |
-	| **进度追踪**   | 持续追踪目标达成进度，阶段性总结回顾             |
-	| **盲区发现**   | 分析你忽略或没有数据的领域，主动提醒补充           |
-	| **完整归档**   | 每次交互必定归档，形成可检索的长期个人历史          |
-	| **周期性报告**  | 日条目 → 周回顾 → 月汇总，三级报告体系自动运转     |
-
-	### 设计原则
-
-	- **数据驱动**：所有输出必须有 My-DATA 中的真实数据依据，严禁猜测
-	- **标准化输出**：建议、警告、纠错、提醒——四种格式统一、结构清晰
-	- **渐进式修改**：重大建议分阶段提出，每阶段可独立验证
-	- **敏感数据保护**：姓名、密码、位置、医疗、财务五类敏感信息分级保护
-	- **角色边界清晰**：不做医学诊断、不替代心理治疗、不替用户做决定、不预测未来
-
-	### 当前架构（Phase 1：Runnable System）
+	## 当前架构（Phase 2）
 
 	```
-	Phase 1：Runnable System/
-	├── main.py                   # CLI 聊天入口
-	├── config.py                 # 配置加载（.env + 路径）
-	├── prompt_builder.py         # 读取 rules/ 拼接 system prompt
-	├── llm_client.py             # LLM API 调用封装
-	├── session_manager.py        # 会话自动保存（JSON）
-	├── memory.py                 # 短期上下文记忆（滑动窗口）
-	├── rules/                    # 规则文件（自包含，不外求）
-	│   ├── 00_CORE_PRINCIPLES.md
-	│   ├── 01_ROLE_DEFINITION.md
-	│   ├── 02_OUTPUT_FORMAT.md
-	│   ├── 03_READING_ORDER.md
-	│   └── 04_CONSTRAINTS.md
-	└── sessions/                 # 对话存档
+	Polaris/
+	├── main.py                     # CLI 入口，对话循环 + 记忆层集成
+	├── config.py                   # .env 配置加载 + 双阶段参数
+	├── prompt_builder.py           # 加载 rules/*.md → system prompt
+	├── llm_client.py               # OpenAI 兼容流式聊天 + 重试
+	├── short_term_memory.py        # 短期记忆 (STM)，支持总结触发
+	├── long_term_memory.py         # SQLite 持久化长期记忆库 (LTM)
+	├── memory_manager.py           # 记忆管家：提取 / 检索 / 总结调度
+	├── session_manger.py           # 对话自动归档为 JSON
+	├── rules/                      # 5 个规则文件，定义 LLM 角色行为
+	└── sessions/                   # 对话存档目录
 	```
 
 	***
 
-	## Future
+	## 快速开始
 
-	Phase 1 可运行 CLI Agent 已交付，这是 CompassY 的第一个里程碑：打开终端输入 `python main.py`，就能和一个有明确角色人格的 AI 对话。背后是 5 个模块协同工作——`prompt_builder.py` 加载 `rules/` 下 5 个规则文件拼成 system prompt，将「冷静分析型伙伴」的角色定义注入 LLM；`llm_client.py` 封装 API 调用，兼容 GPT / DeepSeek / Qwen 等任意模型，密钥写在 `.env`；`memory.py` 用滑动窗口维护短期上下文，确保 LLM 在同一个 session 内不会失忆；`session_manager.py` 把每次对话自动存为 JSON 归档；`main.py` 统筹以上所有模块，提供 `/exit` 退出、`/save` 存档，异常不崩溃。这轮 Phase 验证了核心设计的可行性：Markdown 规则确实能驱动 LLM 按设定角色行事，自包含架构真正做到了搬家即用，从用户输入到回复归档的数据闭环全自动跑通。
+	### 前置条件
 
-	### 往后计划
+	- Python 3.10+
+	- 一个 OpenAI 兼容的 API 端点（OpenAI、DeepSeek、Qwen 等）
 
-	#### Phase 2 记忆系统（Memory Layer）
+	### 安装配置
 
-	- long-term memory（JSON/SQLite）
-	- memory 写入策略（LLM 判断是否存储）
-	- memory 读取策略（相关性匹配）
-	- 自动总结（conversation summarization）
+	```bash
+	# 1. 克隆仓库
+	git clone https://github.com/yourusername/CompassY.git
+	cd CompassY
 
-	#### Phase 3 知识系统（RAG）
+	# 2. 安装依赖
+	pip install openai python-dotenv
 
-	- embedding（OpenAI / bge）
-	- vector database（Chroma / FAISS）
-	- knowledge base（md/pdf）
-	- retrieval pipeline
+	# 3. 配置 API 密钥
+	# 进入 Phase 1 或 Phase 2 目录：
+	cd "Phase 1：Runnable System"
+	echo OPENAI_API_KEY=sk-your-key-here     > .env
+	echo OPENAI_BASE_URL=https://api.openai.com/v1 >> .env
+	echo OPENAI_MODEL=gpt-4o                 >> .env
 
-	#### Phase 4 Agent 化（Planner + Executor）
+	# 4. 启动 Polaris
+	python main.py
+	```
 
-	- Task Planner（任务拆解）
-	- Executor（逐步执行）
-	- Reflection（自我修正）
-	- 多轮任务链
+	### 使用示例
 
-	#### Phase 5 工具系统（Tool Use / Function Calling）
+	```
+	Polaris/
+	├── main.py                     # CLI 入口，对话循环 + 记忆层集成
+	├── config.py                   # .env 配置加载 + 双阶段参数
+	├── prompt_builder.py           # 加载 rules/*.md → system prompt
+	├── llm_client.py               # OpenAI 兼容流式聊天 + 重试
+	├── short_term_memory.py        # 短期记忆 (STM)，支持总结触发
+	├── long_term_memory.py         # SQLite 持久化长期记忆库 (LTM)
+	├── memory_manager.py           # 记忆管家：提取 / 检索 / 总结调度
+	├── session_manger.py           # 对话自动归档为 JSON
+	├── rules/                      # 5 个规则文件，定义 LLM 角色行为
+	└── sessions/                   # 对话存档目录
+	```
 
-	- tool registry
-	- function calling
-	- API 接入（天气 / GitHub / 文件系统）
-	- tool routing
+	***
 
-	#### Phase 6：产品化（Web + Deployment）
+	## 配置说明
 
-	- FastAPI 后端
-	- Web UI（React / Next）
-	- 用户界面
-	- Docker 部署
-	- API 管理
+	所有配置存放在项目根目录的 `.env` 文件中。启动时 Polaris 会校验配置，缺失项会给出明确的中文错误提示。
+
+ | 变量              | 必填 | 说明                                     |
+ | :---------------- | :--- | :--------------------------------------- |
+ | `OPENAI_API_KEY`  | 是   | API 密钥                                 |
+ | `OPENAI_BASE_URL` | 是   | API 端点地址                             |
+ | `OPENAI_MODEL`    | 是   | 模型名称（如 `gpt-4o`、`deepseek-chat`） |
+
+	Phase 2 中 `config.py` 额外可调参数：
+
+ | 参数                    | 默认值 | 说明                               |
+ | :---------------------- | :----- | :--------------------------------- |
+ | `STM_WindowSize`        | 10     | 短期记忆保留的最大对话轮数         |
+ | `STM_SUMMARY_TRIGGER`   | 18     | 消息数达到此阈值时触发自动总结     |
+ | `LTM_RETRIEVAL_K`       | 5      | 每次对话从长期记忆中检索的最大条数 |
+ | `LLM_MEMORY_EXTRACTION` | 5      | 每隔 N 轮对话触发一次记忆提取      |
+
+	***
+
+	## 设计原则
+
+	1. **自包含** — 规则是纯 Markdown 文件，不硬编码任何 prompt。LLM 从 `rules/` 中读取自己的角色定义，行为透明、可审计。
+	2. **数据驱动** — 所有输出必须以用户的真实数据为依据。规则体系禁止猜测。
+	3. **边界清晰** — Polaris 明确不做医学诊断、不替代心理治疗、不算命、不替用户做决定。
+	4. **渐进式交付** — 重大建议分阶段提出，每个阶段可独立验证。
+	5. **敏感数据保护** — 姓名、密码、位置、医疗、财务五类敏感信息分级保护。
+
+	***
+
+	## 路线图
+
+ | 阶段        | 状态     | 重点                                            |
+ | :---------- | :------- | :---------------------------------------------- |
+ | **Phase 1** | ✅ 已完成 | 可运行 CLI Agent，规则驱动的 system prompt      |
+ | **Phase 2** | 🚧 进行中 | 长期记忆：SQLite 持久化、LLM 记忆提取与检索     |
+ | **Phase 3** | 规划中   | RAG 知识系统（embedding、向量数据库、检索管线） |
+ | **Phase 4** | 规划中   | Agent 能力：任务规划、逐步执行、自我反思        |
+ | **Phase 5** | 规划中   | 工具调用（天气、GitHub、文件系统、API）         |
+ | **Phase 6** | 规划中   | 产品化：FastAPI 后端、React 界面、Docker 部署   |
+
