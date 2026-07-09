@@ -4,16 +4,16 @@ from pathlib import Path
 from config import SESSIONS_DIR
 
 def create_session() -> Path:
-    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)                                 # 创建会话目录，确保目录存在    
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H.%M.%S")                        # 生成会话 ID，格式为 YYYY-MM-DD_HH.MM.SS
-    session_file = SESSIONS_DIR / f"{timestamp}.json"                               # 会话文件路径
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H.%M.%S")
+    session_file = SESSIONS_DIR / f"{timestamp}.json"
 
-    session_data = {                                                                # 会话数据模板
+    session_data = {
         "session_id": timestamp,
         "created_at": datetime.now().isoformat(),
         "messages": [],
     }
-    session_file.write_text(json.dumps(session_data, ensure_ascii=False, indent=2), encoding="utf-8")   # 写入会话数据到文件
+    session_file.write_text(json.dumps(session_data, ensure_ascii=False, indent=2), encoding="utf-8")
     return session_file                                                        
 
 def save_message(session_file: Path, role: str, content: str):

@@ -4,7 +4,7 @@ class ShortTermMemory:
     def __init__(self, system_prompt: str):
         self.system_prompt = system_prompt
         self.history: list[dict] = []
-        self._summarize_count = 0       # 已触发总结的次数
+        self._summarize_count = 0
 
     def add_user_message(self, content: str):
         self.history.append({"role": "user", "content": content})
@@ -25,7 +25,6 @@ class ShortTermMemory:
         取出需要被总结的旧消息（前 N 轮），并从 history 中裁掉它们。
         返回值是准备送给 LLM 做总结的消息列表。
         """
-        # 保留最近的 MAX_SHORT_TERM_TURNS 轮，其余拿出来总结
         keep_count = STM_WindowSize * 2
         old = self.history[:-keep_count] if len(self.history) > keep_count else []
         self.history = self.history[-keep_count:]

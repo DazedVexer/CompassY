@@ -3,13 +3,13 @@ from config import LTM_DB_PATH
 
 def _get_connection() -> sqlite3.Connection:
     """获取数据库连接（自动创建文件）"""
-    conn = sqlite3.connect(str(LTM_DB_PATH))                            # 连接SQLie数据库文件，如果文件不存在，则创建一个
-    conn.row_factory = sqlite3.Row                                      # 让查询结果返回 sqlite3.Row 对象
+    conn = sqlite3.connect(str(LTM_DB_PATH))
+    conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
     """初始化数据库表（程序启动时调用一次）"""
-    conn = _get_connection()                                            # 获取一个数据库连接
+    conn = _get_connection()
     conn.execute("""
         CREATE TABLE IF NOT EXISTS memories (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,16 +20,10 @@ def init_db():
             session_id  TEXT,
             created_at  TEXT    DEFAULT (datetime('now', 'localtime'))
         )
-    """)                                                                # 列名，数据类型，约束/默认值
+    """)
 
-    """
-        PRIMARY KEY：        主键，唯一标识每一行，不能重复
-        AUTOINCREMENT：      自动递增，插入时不用手动填
-        DEFAULT 'general'：  如果你插入时不填 category，自动填入 'general'
-    """
-
-    conn.commit()                                                       # 提交事务，将所有变更写入数据库
-    conn.close()                                                        # 关闭数据库连接，释放资源
+    conn.commit()
+    conn.close()
 
 def add_memory(content: str, category: str = "general",
                importance: str = "medium", source: str = "llm_extracted",
@@ -74,16 +68,16 @@ def search_memories(query: str, limit: int = 5) -> list[dict]:
 def get_recent_memories(limit: int = 20) -> list[dict]:
     """获取最近存入的记忆"""
     conn = _get_connection()
-    cursor = conn.execute(                                              # 创建游标 cursor 并执行 SQL
+    cursor = conn.execute(
         """SELECT id, content, category, importance, created_at
            FROM memories
            ORDER BY created_at DESC
-           LIMIT ?""",                                                  # '?'作占位符被(limit,)替代
+           LIMIT ?""",
         (limit,)
     )
-    rows = cursor.fetchall()                                            # fetchall()获取所有查询结果
+    rows = cursor.fetchall()
     conn.close()
-    return [dict(row) for row in rows]                                  # 将查询结果转换为字典列表，每个字典对应一行数据
+    return [dict(row) for row in rows]
 
 
 def delete_memory(memory_id: int):
