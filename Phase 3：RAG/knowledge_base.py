@@ -36,7 +36,6 @@ def load_documents(kb_dir: Path = None) -> list[dict]:
             if content.strip():
                 docs.append({"file": file_path.name, "type": "pdf", "content": content})
         else:
-            # 跳过不支持的文件类型
             continue
 
     return docs
@@ -85,7 +84,6 @@ def build_knowledge_base(force_rebuild: bool = False) -> int:
     store = VectorStore("knowledge_base")
 
     if force_rebuild:
-        # 清空旧数据（Chroma 删 collection 重建）
         print("[Polaris] 正在清空旧知识库...")
         if store._provider == "chroma":
             store._chroma_client.delete_collection(store.collection_name)
@@ -93,7 +91,6 @@ def build_knowledge_base(force_rebuild: bool = False) -> int:
         else:
             store._init_faiss()
 
-    # 加载文档
     print("[Polaris] 正在加载知识库文档...")
     docs = load_documents()
     if not docs:
@@ -104,19 +101,16 @@ def build_knowledge_base(force_rebuild: bool = False) -> int:
     for d in docs:
         print(f"  - {d['file']} ({len(d['content'])} 字符)")
 
-    # 切分
     chunks = chunk_documents(docs)
     print(f"[Polaris] 共切分为 {len(chunks)} 个文本块")
 
     if not chunks:
         return 0
 
-    # 批量生成 embedding
     print(f"[Polaris] 正在生成 embedding（共 {len(chunks)} 块，可能需要一些时间）...")
     chunk_texts = [c["content"] for c in chunks]
     vectors = embed(chunk_texts)
 
-    # 写入向量数据库
     print("[Polaris] 正在写入向量数据库...")
     ids = [f"kb_{c['file']}_{c['chunk_index']}" for c in chunks]
     metadatas = [
@@ -170,7 +164,7 @@ def search_knowledge_base(
     return results
 
 
-# =========== 内部工具函数 ===========
+
 
 def _load_md(file_path: Path) -> str:
     """读取 Markdown 文件"""
@@ -221,7 +215,7 @@ def _split_text(text: str, chunk_size: int, chunk_overlap: int) -> list[str]:
     2. 长段落按句子（。！？\n）再切
     3. 仍超长的句子按 chunk_size 硬截断
     """
-    # 第一步：按段落分割
+
     paragraphs = re.split(r'\n\s*\n', text)
     paragraphs = [p.strip() for p in paragraphs if p.strip()]
 
@@ -229,15 +223,12 @@ def _split_text(text: str, chunk_size: int, chunk_overlap: int) -> list[str]:
     current_chunk = ""
 
     for para in paragraphs:
-        # 如果当前段落很短，尝试合并到当前 chunk
         if len(current_chunk) + len(para) <= chunk_size:
             current_chunk += ("\n\n" if current_chunk else "") + para
         else:
-            # 当前 chunk 已经满了，保存
             if current_chunk:
                 chunks.append(current_chunk)
 
-            # 如果新段落本身就超过 chunk_size，按句子切
             if len(para) > chunk_size:
                 sub_chunks = _split_by_sentence(para, chunk_size, chunk_overlap)
                 chunks.extend(sub_chunks)
@@ -248,14 +239,11 @@ def _split_text(text: str, chunk_size: int, chunk_overlap: int) -> list[str]:
     if current_chunk:
         chunks.append(current_chunk)
 
-    # 如果有 overlap，用滑动窗口做重叠
     if chunk_overlap > 0 and len(chunks) > 1:
         overlapped = [chunks[0]]
         for i in range(1, len(chunks)):
             prev_end = chunks[i-1][-chunk_overlap:] if len(chunks[i-1]) > chunk_overlap else chunks[i-1]
-            # 将前一块的尾部和当前块拼接（去重）
             combined = prev_end + chunks[i]
-            # 去重：如果当前块开头就是前一块的结尾，不重复加
             if chunks[i].startswith(prev_end):
                 overlapped.append(chunks[i])
             else:
@@ -267,7 +255,6 @@ def _split_text(text: str, chunk_size: int, chunk_overlap: int) -> list[str]:
 
 def _split_by_sentence(text: str, chunk_size: int, chunk_overlap: int) -> list[str]:
     """按句子分割长段落"""
-    # 中文句子分隔符：。！？；加上英文的 . ! ?
     sentences = re.split(r'(?<=[。！？；.!?])\s*', text)
     sentences = [s.strip() for s in sentences if s.strip()]
 
@@ -279,7 +266,6 @@ def _split_by_sentence(text: str, chunk_size: int, chunk_overlap: int) -> list[s
         else:
             if current:
                 chunks.append(current)
-            # 如果单个句子超过 chunk_size，硬截断
             if len(sent) > chunk_size:
                 for i in range(0, len(sent), chunk_size - chunk_overlap):
                     chunks.append(sent[i:i + chunk_size])

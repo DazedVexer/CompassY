@@ -12,6 +12,16 @@ from embedding import get_embedding_dim
 
 
 class VectorStore:
+    """
+    向量数据库统一封装。
+    根据 VECTOR_DB_PROVIDER 自动选择 Chroma 或 FAISS。
+
+    使用示例：
+        store = VectorStore("memories")
+        store.add(ids=["m1"], vectors=[[0.1, 0.2, ...]], metadatas=[{"content": "..."}])
+        results = store.search(query_vector=[0.1, 0.2, ...], top_k=5)
+    """
+
     def __init__(self, collection_name: str):
         self.collection_name = collection_name
         self._provider = VECTOR_DB_PROVIDER
@@ -21,6 +31,8 @@ class VectorStore:
             self._init_chroma()
         else:
             self._init_faiss()
+
+    # =========== 公开 API ===========
 
     def add(
         self,
@@ -42,6 +54,10 @@ class VectorStore:
         top_k: int = 5,
         filter_meta: dict = None,
     ) -> list[dict]:
+        """
+        相似度搜索。
+        返回格式: [{"id": "m1", "score": 0.92, "metadata": {...}}, ...]
+        """
         if self._provider == "chroma":
             return self._search_chroma(query_vector, top_k, filter_meta)
         else:
@@ -63,6 +79,8 @@ class VectorStore:
         else:
             return self._index.ntotal if self._index else 0
 
+    # =========== Chroma 实现 ===========
+
     def _init_chroma(self):
         import chromadb
         CHROMA_PERSIST_DIR.mkdir(parents=True, exist_ok=True)
@@ -70,10 +88,9 @@ class VectorStore:
         self._chroma_client = chromadb.PersistentClient(
             path=str(CHROMA_PERSIST_DIR)
         )
-        # get_or_create: 如果 collection 已存在就复用，不存在就新建
         self._collection = self._chroma_client.get_or_create_collection(
             name=self.collection_name,
-            metadata={"hnsw:space": "cosine"},  # 用余弦相似度
+            metadata={"hnsw:space": "cosine"},
         )
 
     def _add_chroma(self, ids, vectors, metadatas):
@@ -96,7 +113,7 @@ class VectorStore:
         if results["ids"] and results["ids"][0]:
             for i, doc_id in enumerate(results["ids"][0]):
                 distance = results["distances"][0][i]
-                score = 1.0 - distance  # cosine distance → cosine similarity
+                score = 1.0 - distance
                 if score >= VECTOR_SIMILARITY_THRESHOLD:
                     output.append({
                         "id": doc_id,
@@ -108,6 +125,8 @@ class VectorStore:
     def _delete_chroma(self, ids):
         self._collection.delete(ids=ids)
 
+    # =========== FAISS 实现 ===========
+
     def _init_faiss(self):
         import faiss
         import numpy as np
@@ -118,10 +137,8 @@ class VectorStore:
         if FAISS_INDEX_PATH.exists() and FAISS_META_PATH.exists():
             self._index = faiss.read_index(str(FAISS_INDEX_PATH))
             self._meta = json.loads(FAISS_META_PATH.read_text(encoding="utf-8"))
-            # 重建 id → index 映射
             self._id_to_idx = {m["id"]: i for i, m in enumerate(self._meta)}
         else:
-            # 新建索引：用内积（IP = Inner Product），配合 L2 归一化向量 = 余弦相似度
             self._index = faiss.IndexIDMap(faiss.IndexFlatIP(self._dim))
             self._meta = []
             self._id_to_idx = {}
@@ -159,11 +176,9 @@ class VectorStore:
         for score, fid in zip(scores[0], faiss_ids[0]):
             if fid < 0 or score < VECTOR_SIMILARITY_THRESHOLD:
                 continue
-            # fid 是 FAISS 内部 ID，需要映射回元数据
             if fid < len(self._meta):
                 meta_entry = self._meta[fid]
                 if filter_meta:
-                    # 简单的元数据过滤
                     match = all(
                         meta_entry["metadata"].get(k) == v
                         for k, v in filter_meta.items()
@@ -182,16 +197,14 @@ class VectorStore:
         for doc_id in ids:
             if doc_id in self._id_to_idx:
                 idx = self._id_to_idx.pop(doc_id)
-                self._meta[idx] = None  # 标记删除
+                self._meta[idx] = None
 
-        # 清理并重建索引
         self._rebuild_faiss_index()
 
     def _rebuild_faiss_index(self):
         import faiss
         import numpy as np
 
-        # 过滤掉已删除的
         valid_entries = [(i, m) for i, m in enumerate(self._meta) if m is not None]
         self._meta = [m for _, m in valid_entries]
 
@@ -202,7 +215,6 @@ class VectorStore:
         for m in self._meta:
             self._id_to_idx[m["id"]] = len(self._id_to_idx)
 
-        # FAISS 删除后无法恢复原向量（我们没存），因此 _rebuild 只重建映射
         self._index = new_index
         self._next_faiss_id = 0
         self._save_faiss()

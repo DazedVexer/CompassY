@@ -28,11 +28,9 @@ def retrieve_all(
     from long_term_memory import search_memories_by_vector
     from knowledge_base import search_knowledge_base
 
-    # 并行检索两个来源
     memories = search_memories_by_vector(query, top_k=memory_top_k)
     knowledge = search_knowledge_base(query, top_k=kb_top_k)
 
-    # 格式化记忆结果
     mem_results = []
     for m in memories:
         mem_results.append({
@@ -44,7 +42,6 @@ def retrieve_all(
             "source": "memory",
         })
 
-    # 格式化知识库结果
     kb_results = []
     for k in knowledge:
         meta = k.get("metadata", {})
@@ -56,7 +53,7 @@ def retrieve_all(
             "source": "kb",
         })
 
-    # 合并所有结果，按 score 降序排序
+
     all_results = mem_results + kb_results
     all_results.sort(key=lambda x: x["score"], reverse=True)
 
@@ -78,7 +75,6 @@ def build_retrieval_context(query: str) -> str:
 
     lines = []
 
-    # 记忆部分
     if result["memories"]:
         lines.append("\n[以下是关于用户的长期记忆，请在对话中参考：]")
         for m in result["memories"]:
@@ -88,7 +84,6 @@ def build_retrieval_context(query: str) -> str:
             lines.append(f"- {importance_label} {m['content']}")
         lines.append("")
 
-    # 知识库部分
     if result["knowledge"]:
         lines.append("[以下是知识库中与当前问题相关的参考资料：]")
         for k in result["knowledge"]:
