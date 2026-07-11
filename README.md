@@ -1,63 +1,60 @@
-* # Polaris
+# Polaris
 
-## Personal AI Executive Assistant
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.10+-blue?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/LLM-OpenAI%20%7C%20DeepSeek%20%7C%20Qwen-green?logo=openai" alt="LLM">
+  <img src="https://img.shields.io/badge/DB-SQLite%20%7C%20ChromaDB%20%7C%20FAISS-orange?logo=sqlite" alt="Database">
+  <img src="https://img.shields.io/badge/Deploy-FastAPI%20%7C%20React%20%7C%20Docker-2496ED?logo=docker" alt="Deploy">
+  <img src="https://img.shields.io/badge/license-MIT-purple" alt="License">
+  <img src="https://img.shields.io/badge/status-production%20ready-brightgreen" alt="Status">
+</p>
 
-## What is CompassY?
 
-Polaris 是一个**个人 AI 执行助理**，将 LLM 转化为有纪律的、数据驱动的生活教练。它不只是一个泛泛的聊天机器人——Polaris 在一套严密的规则体系下运行，定义其角色、输出格式、约束和分析人格。它能帮你：
+<p align="center">
+  <b>一个自托管的 AI Agent：具备长期记忆、RAG、工具调用和自主规划能力。</b>
+  <br>
+</p>
 
-- **串联**分散在健康、学习、日程、目标中的个人数据
-- **发现**行为与目标的偏离
-- **预警**风险（分级警告：红 / 黄 / 绿）
-- **记住**一切——每次交互自动归档、可检索
-- **报告**进度（每日条目 → 每周回顾 → 每月汇总）
 
-Polaris 不是医生、不是心理治疗师、也不是算命先生。它是一个**分析型伙伴**，有明确的边界，始终基于*你的*真实数据工作。Why?
+***
+
+## 为什么是 Polaris？
+
+市面上大多数"AI Agent"项目不过是 LangChain 或 AutoGPT 的薄薄一层封装。\*\*Polaris 不一样。\*\*每次 LLM 调用、每个 prompt、每次决策——都在源码里，看得见、改得动。
+
+- **六层渐进式架构**——每一层都因为上一层暴露了真实痛点而诞生，不是框架告诉你"该加这一层"
+- **零框架依赖**——不依赖 LangChain、LlamaIndex、CrewAI。纯 Python + OpenAI SDK
+- **Provider 无关**——Embedding 可换 OpenAI / bge，向量库可换 Chroma / FAISS，LLM 可换 OpenAI / DeepSeek / Qwen
+- **CLI + Web 双模式**——双击 `.bat` 启动 CLI，`docker-compose up` 启动 Web UI
+- **开箱即用**——天气查询、GitHub Issue、文件系统操作、插件式工具注册：加一个新工具只需 3 行代码
+
+```
+"你" → /agent "查一下北京今天天气。如果下雨，帮我在 GitHub 建 Issue 提醒我带伞。"
+
+Polaris:
+  Step 1 — get_weather("Beijing")     → "28°C，中雨"
+  Step 2 — 分析结果                    → "今天会下雨"
+  Step 3 — create_issue(...)          → "Issue #42 已创建 ✓"
+  完成。
+```
 
 ***
 
 ## 架构
 
-### Phase 1 — 可运行 CLI Agent ✅
+项目经过 6 个阶段的渐进式开发，`Development/` 目录中保留了每次迭代的完整快照。
 
-一个功能完整的 CLI Agent，具备角色感知的 system prompt、流式对话、滑动窗口短期记忆和自动会话归档。
+**Phase 1 — 核心引擎**：规则驱动的 system prompt + OpenAI 流式对话 + 会话归档，LLM 带着人格跑起来。
 
-| 模块                 | 职责                                        |
-| -------------------- | ------------------------------------------- |
-| `prompt_builder.py`  | 加载 `rules/*.md`，拼接为复合 system prompt |
-| `llm_client.py`      | OpenAI 兼容的流式聊天，含重试逻辑           |
-| `memory.py`          | 滑动窗口短期上下文（STM）                   |
-| `session_manager.py` | 每次对话自动保存为 JSON                     |
-| `main.py`            | 调度器 — `/exit`、`/save`、优雅异常处理     |
+**Phase 2 — 记忆层**：加入短期记忆（滑动窗口）和长期记忆（SQLite 持久化），LLM 自动从对话中提取关键信息存入记忆库。
 
-### Phase 2 — 记忆层 🚧（进行中）
+**Phase 3 — RAG 检索**：引入 embedding（OpenAI / bge）和向量数据库（Chroma / FAISS），知识库支持 md/pdf 文档的语义检索，跨越关键词匹配的局限。
 
-增加持久化长期记忆，由 LLM 驱动记忆提取、检索和总结。
+**Phase 4 — Agent 循环**：Planner 拆解任务 → Executor 逐步执行 → Reflection 质检，形成 Plan-Execute-Reflect 闭环，Agent 具备多步推理和失败自愈能力。
 
-| 模块                   | 职责                         |
-| ---------------------- | ---------------------------- |
-| `short_term_memory.py` | 增强版 STM，含总结触发机制   |
-| `long_term_memory.py`  | 基于 SQLite 的持久化记忆存储 |
-| `memory_manager.py`    | 记忆提取、检索与总结调度器   |
-| `config.py`            | 双阶段扩展配置               |
-	
-***
+**Phase 5 — 工具系统**：插件式工具注册 + OpenAI Function Calling，内置天气、GitHub、文件系统工具，新增工具只需 3 行代码注册。
 
-## 当前架构（Phase 2）
-
-```
-Polaris/
-├── main.py                     # CLI 入口，对话循环 + 记忆层集成
-├── config.py                   # .env 配置加载 + 双阶段参数
-├── prompt_builder.py           # 加载 rules/*.md → system prompt
-├── llm_client.py               # OpenAI 兼容流式聊天 + 重试
-├── short_term_memory.py        # 短期记忆 (STM)，支持总结触发
-├── long_term_memory.py         # SQLite 持久化长期记忆库 (LTM)
-├── memory_manager.py           # 记忆管家：提取 / 检索 / 总结调度
-├── session_manger.py           # 对话自动归档为 JSON
-├── rules/                      # 5 个规则文件，定义 LLM 角色行为
-└── sessions/                   # 对话存档目录
-```
+**Phase 6 — 产品化**：FastAPI 后端 + React 前端 + Docker Compose 一键部署，从 CLI 走向 Web 应用。
 
 ***
 
@@ -66,86 +63,162 @@ Polaris/
 ### 前置条件
 
 - Python 3.10+
-- 一个 OpenAI 兼容的 API 端点（OpenAI、DeepSeek、Qwen 等）
+- OpenAI 兼容的 API Key（[OpenAI](https://platform.openai.com)、[DeepSeek](https://platform.deepseek.com)、[Qwen](https://dashscope.console.aliyun.com) 等）
+- 安装 Node.js（仅 Web 前端开发时需要）
 
-### 安装配置
+### CLI 模式
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/yourusername/CompassY.git
-cd CompassY
+git clone https://github.com/yourusername/Polaris.git
+cd Polaris
 
-# 2. 安装依赖
-pip install openai python-dotenv
+pip install -r requirements.txt
+cp .env.example .env
+# 编辑 .env → 填入 OPENAI_API_KEY
 
-# 3. 配置 API 密钥
-# 进入 Phase 1 或 Phase 2 目录：
-cd "Phase 1：Runnable System"
-echo OPENAI_API_KEY=sk-your-key-here     > .env
-echo OPENAI_BASE_URL=https://api.openai.com/v1 >> .env
-echo OPENAI_MODEL=gpt-4o                 >> .env
-
-# 4. 启动 Polaris
 python main.py
+# 或者双击 启动CLI模式.bat
 ```
 
-### 使用示例
+### Web 模式
+
+```bash
+docker-compose up -d
+# 打开 → http://localhost:8000
+# API 文档 → http://localhost:8000/docs
+```
+
+***
+
+## 项目结构
 
 ```
 Polaris/
-├── main.py                     # CLI 入口，对话循环 + 记忆层集成
-├── config.py                   # .env 配置加载 + 双阶段参数
-├── prompt_builder.py           # 加载 rules/*.md → system prompt
-├── llm_client.py               # OpenAI 兼容流式聊天 + 重试
-├── short_term_memory.py        # 短期记忆 (STM)，支持总结触发
-├── long_term_memory.py         # SQLite 持久化长期记忆库 (LTM)
-├── memory_manager.py           # 记忆管家：提取 / 检索 / 总结调度
-├── session_manger.py           # 对话自动归档为 JSON
-├── rules/                      # 5 个规则文件，定义 LLM 角色行为
-└── sessions/                   # 对话存档目录
+│
+├── main.py                      # CLI 入口
+├── config.py                    # 所有配置集中管理
+│
+├── core/                        # Agent 核心循环
+│   ├── agent_loop.py            # Plan → Execute → Reflect 编排器
+│   ├── task_planner.py          # 用户指令 → 结构化步骤计划
+│   ├── executor.py              # 逐步执行 + Function Calling 工具调用
+│   └── reflection.py            # 质检 → 步骤重试 / 方案重规划 / 完成
+│
+├── memory/                      # 记忆系统
+│   ├── short_term_memory.py     # 滑动窗口 STM + 自动摘要触发
+│   ├── long_term_memory.py      # SQLite 持久化 + embedding + 情绪/画像表
+│   └── memory_manager.py        # LLM 驱动记忆提取 / 检索 / 总结
+│
+├── retrieval/                   # 检索 + 知识库
+│   ├── retrieval_pipeline.py    # 双路召回（记忆 + 知识库）→ 统一排序
+│   ├── knowledge_base.py        # md/pdf 加载 + 分块 + 向量化入库
+│   └── vector_store.py          # 统一向量数据库（Chroma | FAISS）
+│
+├── llm/                         # LLM 接口层
+│   ├── llm_client.py            # OpenAI 兼容流式客户端（重试 + 指数退避）
+│   ├── embedding.py             # 统一 embedding（OpenAI | bge 本地）
+│   └── prompt_builder.py        # rules/*.md → system prompt + BangBand 动态注入
+│
+├── perception/                  # 情绪与意图感知（BangBand）
+│   └── perception.py            # 每轮对话静默分析 mood / intent / intensity
+│
+├── session/                     # 会话归档
+│   └── session_manger.py        # JSON 对话存档：创建 / 追加 / 加载
+│
+├── tools/                       # 工具系统
+│   ├── tool_registry.py         # 插件式注册中心 + OpenAI Function Calling
+│   ├── weather.py               # OpenWeatherMap 天气查询
+│   ├── github.py                # Issue 创建 / 仓库查询 / 用户仓库列表
+│   ├── filesystem.py            # 安全沙箱：读 / 写 / 列目录 / 搜索
+│   └── __init__.py              # 批量注册入口
+│
+├── server/                      # FastAPI 后端
+│   ├── main.py                  # 应用入口 + /health 健康检查
+│   ├── models.py                # Pydantic 请求/响应模型
+│   ├── middleware.py             # CORS + 请求日志 + API Token 认证
+│   └── api/
+│       ├── chat.py              # /api/chat · stream · agent · agent/stream
+│       ├── memory.py            # /api/memory 列表 / 搜索 / 删除
+│       ├── knowledge.py         # /api/knowledge 状态 / 搜索 / 上传 / 重建
+│       └── tools.py             # /api/tools 工具列表
+│
+├── web/                         # React + TypeScript 前端
+│   ├── src/
+│   │   ├── components/          # ChatWindow · AgentPanel · MemoryPanel · KnowledgePanel · Sidebar · ToolStatus · MessageBubble
+│   │   ├── api.ts               # 后端 API 客户端封装
+│   │   ├── types.ts             # TypeScript 类型定义
+│   │   ├── App.tsx              # 根组件（路由 + 布局）
+│   │   └── App.css              # 全局样式
+│   ├── index.html               # Vite 入口 HTML
+│   ├── package.json             # 前端依赖
+│   ├── tsconfig.json            # TypeScript 配置
+│   └── vite.config.ts           # Vite 构建配置
+│
+├── rules/                       # Agent 人格规则（6 个 .md）
+├── sessions/                    # 对话存档目录
+├── kb/                          # 知识库文档目录
+│
+├── Dockerfile                   # 多阶段构建
+├── docker-compose.yml           # 一键部署
+├── requirements.txt             # Python 依赖
+├── .env.example                 # 环境变量模板
+├── 启动CLI模式.bat               # Windows 双击启动 CLI
+└── 启动Web模式.bat               # Windows 双击启动 Web
 ```
 
 ***
 
-## 配置说明
+## 配置
 
-所有配置存放在项目根目录的 `.env` 文件中。启动时 Polaris 会校验配置，缺失项会给出明确的中文错误提示。
+```bash
+cp .env.example .env
+```
 
-| 变量              | 必填 | 说明                                     |
-| :---------------- | :--- | :--------------------------------------- |
-| `OPENAI_API_KEY`  | 是   | API 密钥                                 |
-| `OPENAI_BASE_URL` | 是   | API 端点地址                             |
-| `OPENAI_MODEL`    | 是   | 模型名称（如 `gpt-4o`、`deepseek-chat`） |
+**必填**
 
-Phase 2 中 `config.py` 额外可调参数：
+| 变量              | 说明                                            |
+| ----------------- | ----------------------------------------------- |
+| `OPENAI_API_KEY`  | API Key（OpenAI / DeepSeek / Qwen）             |
+| `OPENAI_BASE_URL` | API 端点（默认 `https://api.openai.com/v1`）    |
+| `OPENAI_MODEL`    | 模型（`gpt-4o` / `deepseek-chat` / `qwen-max`） |
 
-| 参数                    | 默认值 | 说明                               |
-| :---------------------- | :----- | :--------------------------------- |
-| `STM_WindowSize`        | 10     | 短期记忆保留的最大对话轮数         |
-| `STM_SUMMARY_TRIGGER`   | 18     | 消息数达到此阈值时触发自动总结     |
-| `LTM_RETRIEVAL_K`       | 5      | 每次对话从长期记忆中检索的最大条数 |
-| `LLM_MEMORY_EXTRACTION` | 5      | 每隔 N 轮对话触发一次记忆提取      |
+**Embedding（可选）**
+
+| 变量                 | 默认值   | 可选              |
+| -------------------- | -------- | ----------------- |
+| `EMBEDDING_PROVIDER` | `openai` | `bge`（免费本地） |
+
+**向量库（可选）**
+
+| 变量                 | 默认值   | 可选    |
+| -------------------- | -------- | ------- |
+| `VECTOR_DB_PROVIDER` | `chroma` | `faiss` |
+
+**工具（可选）**
+
+| 变量                  | 用途                          |
+| --------------------- | ----------------------------- |
+| `OPENWEATHER_API_KEY` | 天气查询                      |
+| `GITHUB_TOKEN`        | GitHub 操作（需 `repo` 权限） |
 
 ***
 
-## 设计原则
+## API 参考
 
-1. **自包含** — 规则是纯 Markdown 文件，不硬编码任何 prompt。LLM 从 `rules/` 中读取自己的角色定义，行为透明、可审计。
-2. **数据驱动** — 所有输出必须以用户的真实数据为依据。规则体系禁止猜测。
-3. **边界清晰** — Polaris 明确不做医学诊断、不替代心理治疗、不算命、不替用户做决定。
-4. **渐进式交付** — 重大建议分阶段提出，每个阶段可独立验证。
-5. **敏感数据保护** — 姓名、密码、位置、医疗、财务五类敏感信息分级保护。
+启动后访问 `http://localhost:8000/docs` 查看完整交互式文档。
 
-***
-
-## 路线图
-
-| 阶段        | 状态     | 重点                                            |
-| :---------- | :------- | :---------------------------------------------- |
-| **Phase 1** | ✅ 已完成 | 可运行 CLI Agent，规则驱动的 system prompt      |
-| **Phase 2** | 🚧 进行中 | 长期记忆：SQLite 持久化、LLM 记忆提取与检索     |
-| **Phase 3** | 规划中   | RAG 知识系统（embedding、向量数据库、检索管线） |
-| **Phase 4** | 规划中   | Agent 能力：任务规划、逐步执行、自我反思        |
-| **Phase 5** | 规划中   | 工具调用（天气、GitHub、文件系统、API）         |
-| **Phase 6** | 规划中   | 产品化：FastAPI 后端、React 界面、Docker 部署   |
-
+| 方法     | 路径                     | 说明                  |
+| -------- | ------------------------ | --------------------- |
+| `POST`   | `/api/chat`              | 非流式对话            |
+| `POST`   | `/api/chat/stream`       | SSE 流式              |
+| `POST`   | `/api/chat/agent`        | Agent 任务执行        |
+| `POST`   | `/api/chat/agent/stream` | Agent + 每步 SSE 进度 |
+| `GET`    | `/api/memory`            | 记忆列表              |
+| `POST`   | `/api/memory/search`     | 语义搜索记忆          |
+| `DELETE` | `/api/memory/{id}`       | 删除记忆              |
+| `GET`    | `/api/knowledge/status`  | 知识库状态            |
+| `POST`   | `/api/knowledge/search`  | 语义搜索知识库        |
+| `POST`   | `/api/knowledge/upload`  | 上传文档              |
+| `POST`   | `/api/knowledge/rebuild` | 重建知识库            |
+| `GET`    | `/api/tools`             | 可用工具列表          |
+| `GET`    | `/health`                | 健康检查              |
